@@ -6,4 +6,9 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+virgl_renderer = ["rutabaga_gfx/virgl_renderer"]
+
 [dependencies]
+data_model = { path = "data_model" }
+rutabaga_gfx = { path = "rutabaga_gfx" }
