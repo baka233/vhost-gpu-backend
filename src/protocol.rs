@@ -1,6 +1,5 @@
 // virtio-gpu protocol structure and const
 use data_model::{Le32, DataInit};
-use std::os::raw::c_char;
 use std::marker::PhantomData;
 
 use std::fmt;
@@ -88,7 +87,7 @@ unsafe impl DataInit for virtio_gpu_cursor_pos{}
 #[repr(C)]
 pub struct virtio_gpu_update_cursor {
     pub hdr:           virtio_gpu_ctrl_hdr,
-    pub pos:           virtio_gpu_curosr_pos, /* update & move */
+    pub pos:           virtio_gpu_cursor_pos, /* update & move */
     pub resource_id:   Le32,                  /* update only */
     pub hot_x:         Le32,                  /* update only */
     pub padding:       Le32,
@@ -253,7 +252,7 @@ pub struct virtio_gpu_transfer_host_3d {
 unsafe impl DataInit for virtio_gpu_transfer_host_3d{}
 
 /* VIRTIO_GPU_CMD_RESOURCE_CREATE_3D */
-pub const VIRTIO_GPU_RESOURCE_FLAG_Y_0_TOP : u32 = (1 << 0);
+pub const VIRTIO_GPU_RESOURCE_FLAG_Y_0_TOP : u32 = 1 << 0;
 #[derive(Debug, Copy, Clone, Default)]
 #[repr(C)]
 pub struct virtio_gpu_resource_create_3d {
@@ -303,8 +302,8 @@ impl Clone for virtio_gpu_ctx_create {
 impl fmt::Debug for virtio_gpu_ctx_create {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // name should not be longer than 64
-        let name_size = [..min(self.nlen.to_native() as usize, 64)];
-        let debug_name = from_utf8(&self.debug_name[name_size])
+        let name_size = min(self.nlen.to_native() as usize, 64);
+        let debug_name = from_utf8(&self.debug_name[..name_size])
             .unwrap_or("<unkown>");
         f.debug_struct("virtio_gpu_ctx_create")
             .field("hdr", &self.hdr)
@@ -405,7 +404,7 @@ pub struct virtio_gpu_cmd_get_edid {
 unsafe impl DataInit for virtio_gpu_cmd_get_edid{}
 
 /* VIRTIO_GPU_RESP_OK_EDID */
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct virtio_gpu_resp_edid {
     pub hdr:         virtio_gpu_ctrl_hdr,
@@ -414,9 +413,15 @@ pub struct virtio_gpu_resp_edid {
     pub edid:        [u8; 1024],
 }
 
+impl Default for virtio_gpu_resp_edid {
+    fn default() -> Self {
+        unsafe { ::std::mem::zeroed() }
+    }
+}
+
 unsafe impl DataInit for virtio_gpu_resp_edid{}
 
-pub const VIRTIO_GPU_EVENT_DISPLAY: u32 = (1 << 0);
+pub const VIRTIO_GPU_EVENT_DISPLAY: u32 = 1 << 0;
 #[derive(Debug, Copy, Clone, Default)]
 #[repr(C)]
 pub struct virtio_gpu_config {
