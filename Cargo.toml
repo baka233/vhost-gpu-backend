@@ -12,3 +12,4 @@ virgl_renderer = ["rutabaga_gfx/virgl_renderer"]
 [dependencies]
 rutabaga_gfx = { path = "third-party/rutabaga_gfx" }
 vm-memory = { version = ">=0.2.2", features = ["backend-mmap"] }
+libc = "*"

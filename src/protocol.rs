@@ -7,14 +7,13 @@ use std::str::from_utf8;
 use std::cmp::min;
 
 use ::vm_memory::{ Le32, ByteValued, Bytes, GuestMemoryError, GuestMemoryMmap };
-use vm_memory::{GuestAddress, Address};
+use vm_memory::{GuestAddress, Address, Le64};
 use std::mem::{size_of_val, size_of};
-use crate::protocol::VirtioGpuCommand::{CmdGetDisplayInfo, CmdResourceCreate2D, CmdResourceUnref, CmdTransferToHost2D, CmdSetScanout, CmdResourceFlush, CmdResourceAttachBacking, CmdResourceDetachBacking, CmdGetCapsetInfo, CmdGetCapset, CmdGetEdid, CmdCtxCreate, CmdCtxDestroy, CmdCtxAttachResource, CmdCtxDetachResource, CmdResourceCreate3D, CmdTransferToHost3D, CmdTransferFromHost3D, CmdSubmit3D, CmdUpdateCursor, CmdMoveCursor};
 use vm_memory::guest_memory::Error;
 use crate::protocol::VirtioGpuCommandDecodeError::ParserError;
-use crate::protocol::VirtioGpuResponseError::{EncodeError, UnsupportPlatform};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
+use rutabaga_gfx::RutabagaError;
 
 
 // virtio-gpu protocol based on
@@ -65,6 +64,8 @@ pub const VIRTIO_GPU_RESP_ERR_INVALID_SCANOUT_ID: u32   = 0x1202;
 pub const VIRTIO_GPU_RESP_ERR_INVALID_RESOURCE_ID: u32  = 0x1203;
 pub const VIRTIO_GPU_RESP_ERR_INVALID_CONTEXT_ID: u32   = 0x1204;
 pub const VIRTIO_GPU_RESP_ERR_INVALID_PARAMETER: u32    = 0x1205;
+
+pub const VIRTIO_GPU_FLAG_FENCE: u32 = 1 << 0;
 
 //----- virtio-gpu control header and command header ----
 #[derive(Debug, Copy, Clone, Default)]
@@ -171,7 +172,7 @@ unsafe impl ByteValued for virtio_gpu_resource_flush{}
 pub struct virtio_gpu_transfer_to_host_2d {
     pub hdr:            virtio_gpu_ctrl_hdr,
     pub r:              virtio_gpu_rect,
-    pub offset:         Le32,
+    pub offset:         Le64,
     pub resource_id:    Le32,
     pub padding:        Le32,
 }
@@ -251,7 +252,7 @@ unsafe impl ByteValued for virtio_gpu_box{}
 pub struct virtio_gpu_transfer_host_3d {
     pub hdr:          virtio_gpu_ctrl_hdr,
     pub box_:         virtio_gpu_box,
-    pub offset:       Le32,
+    pub offset:       Le64,
     pub resource_id:  Le32,
     pub level:        Le32,
     pub stride:       Le32,
@@ -517,14 +518,15 @@ pub enum VirtioGpuCommand {
     CmdMoveCursor(virtio_gpu_update_cursor),
 }
 
-pub type VirtioGpuCommandResult<T> = std::result::Result<T, VirtioGpuCommandDecodeError>;
+pub type VirtioGpuCommandResult = std::result::Result<VirtioGpuCommand, VirtioGpuCommandDecodeError>;
 
 
 impl VirtioGpuCommand {
     pub fn decode(
         cmd: &mut GuestMemoryMmap,
         addr: GuestAddress
-    ) -> VirtioGpuCommandResult<VirtioGpuCommand>  {
+    ) -> VirtioGpuCommandResult  {
+        use VirtioGpuCommand::*;
         let hdr = cmd.read_obj::<virtio_gpu_ctrl_hdr>(addr)?;
         Ok(match hdr.type_.into() {
             VIRTIO_GPU_CMD_GET_DISPLAY_INFO         => CmdGetDisplayInfo(cmd.read_obj(addr)?),
@@ -556,23 +558,23 @@ impl VirtioGpuCommand {
     }
 }
 
-pub enum VirtioGpuResponseError {
-    TooManyScanout(usize),
-    EncodeError(GuestMemoryError),
-    UnsupportPlatform(TryFromIntError),
-}
+pub type VirtioGpuResponseResult = ::std::result::Result<VirtioGpuResponse, VirtioGpuResponse>;
 
-pub type VirtioGpuResponseResult<T> = ::std::result::Result<T, VirtioGpuResponseError>;
-
-impl From<GuestMemoryError> for VirtioGpuResponseError {
-    fn from(e: Error) -> Self {
-        EncodeError(e)
+impl From<RutabagaError> for VirtioGpuResponse {
+    fn from(e: RutabagaError) -> Self {
+        VirtioGpuResponse::RutabagaError(e)
     }
 }
 
-impl From<TryFromIntError> for VirtioGpuResponseError {
+impl From<GuestMemoryError> for VirtioGpuResponse {
+    fn from(e: Error) -> Self {
+        VirtioGpuResponse::EncodeError(e)
+    }
+}
+
+impl From<TryFromIntError> for VirtioGpuResponse {
     fn from(e: TryFromIntError) -> Self {
-        UnsupportPlatform(e)
+        VirtioGpuResponse::UnsupportPlatform(e)
     }
 }
 
@@ -599,6 +601,11 @@ pub enum VirtioGpuResponse {
     ErrInvalidParameter,
 
     // lib specified error
+    TooManyScanout(usize),
+    EncodeError(GuestMemoryError),
+    RutabagaError(RutabagaError),
+    UnsupportPlatform(TryFromIntError),
+    InvalidSglistRegion()
 }
 
 impl VirtioGpuResponse {
@@ -610,7 +617,7 @@ impl VirtioGpuResponse {
         ctx_id:   u32,
         writer:   &mut GuestMemoryMmap,
         addr:     GuestAddress,
-    ) -> VirtioGpuResponseResult<u32> {
+    ) -> Result<u32, VirtioGpuResponse> {
         let hdr = virtio_gpu_ctrl_hdr {
             type_:    Le32::from(self.get_resp_command_const()),
             flags:    Le32::from(flags),
@@ -622,7 +629,7 @@ impl VirtioGpuResponse {
         let len = match *self {
             VirtioGpuResponse::OkDisplayInfo(ref inner) => {
                 if inner.len() > VIRTIO_GPU_MAX_SCANOUTS {
-                    return Err(VirtioGpuResponseError::TooManyScanout(inner.len()));
+                    return Err(VirtioGpuResponse::TooManyScanout(inner.len()));
                 }
                 let mut resp = virtio_gpu_resp_display_info {
                     hdr,
@@ -692,6 +699,7 @@ impl VirtioGpuResponse {
             Self::ErrInvalidResourceId => VIRTIO_GPU_RESP_ERR_INVALID_RESOURCE_ID,
             Self::ErrInvalidContextId  => VIRTIO_GPU_RESP_ERR_INVALID_CONTEXT_ID,
             Self::ErrInvalidParameter  => VIRTIO_GPU_RESP_ERR_INVALID_PARAMETER,
+            _                          => VIRTIO_GPU_RESP_ERR_UNSPEC,
         }
     }
 }
