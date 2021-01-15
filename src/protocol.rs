@@ -67,6 +67,12 @@ pub const VIRTIO_GPU_RESP_ERR_INVALID_PARAMETER: u32    = 0x1205;
 
 pub const VIRTIO_GPU_FLAG_FENCE: u32 = 1 << 0;
 
+
+//----- feature flags ----
+pub const VIRTIO_GPU_F_VIRGL: u32         = 0;
+pub const VIRTIO_GPU_F_EDID: u32          = 1;
+pub const VIRTIO_GPU_F_RESOURCE_UUID: u32 = 2;
+
 //----- virtio-gpu control header and command header ----
 #[derive(Debug, Copy, Clone, Default)]
 #[repr(C)]
