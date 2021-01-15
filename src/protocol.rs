@@ -68,6 +68,10 @@ pub const VIRTIO_GPU_RESP_ERR_INVALID_PARAMETER: u32    = 0x1205;
 pub const VIRTIO_GPU_FLAG_FENCE: u32 = 1 << 0;
 
 
+// Device type
+pub const VIRTIO_GPU_DEVICE_TYPE: u32 = 16;
+
+
 //----- feature flags ----
 pub const VIRTIO_GPU_F_VIRGL: u32         = 0;
 pub const VIRTIO_GPU_F_EDID: u32          = 1;
