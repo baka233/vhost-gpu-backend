@@ -1,10 +1,44 @@
 use std::num::NonZeroU32;
-use rutabaga_gfx::{Rutabaga, ResourceCreate3D, RUTABAGA_PIPE_TEXTURE_2D, RUTABAGA_PIPE_BIND_RENDER_TARGET, RutabagaIovec, Transfer3D, RutabagaBuilder, RutabagaFenceData};
+use rutabaga_gfx::{Rutabaga, ResourceCreate3D, RUTABAGA_PIPE_TEXTURE_2D, RUTABAGA_PIPE_BIND_RENDER_TARGET, RutabagaIovec, Transfer3D, RutabagaBuilder, RutabagaFenceData, VirglRendererFlags, RutabagaComponentType};
 use std::collections::BTreeMap;
 use vm_memory::{GuestMemoryMmap, GuestAddress, GuestMemory, VolatileSlice};
 use std::os::raw::c_void;
 use crate::protocol::*;
 use crate::protocol::VirtioGpuResponse::{OkNoData, OkCapsetInfo, OkCapset, ErrInvalidResourceId, OkDisplayInfo};
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum GpuMode {
+    Mode2D,
+    Mode3D,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct GpuParameter {
+    pub display_width:            u32,
+    pub display_height:           u32,
+    pub renderer_use_egl:         bool,
+    pub renderer_use_gles:        bool,
+    pub renderer_use_glx:         bool,
+    pub renderer_use_surfaceless: bool,
+    pub mode:                     GpuMode,
+}
+
+const DEFAULT_DSIPLAY_WIDTH: u32  = 900;
+const DEFAULT_DISPLAY_HEIGHT: u32 = 600;
+
+impl Default for GpuParameter {
+    fn default() -> Self {
+        Self {
+            display_width: DEFAULT_DSIPLAY_WIDTH,
+            display_height: DEFAULT_DISPLAY_HEIGHT,
+            renderer_use_egl: true,
+            renderer_use_gles: true,
+            renderer_use_glx: true,
+            renderer_use_surfaceless: true,
+            mode: GpuMode::Mode2D
+        }
+    }
+}
 
 pub struct VirtioGpuResource {
     resource_id: u32,
@@ -82,15 +116,30 @@ fn transfer_host_3d_to_transfer_3d(
 
 impl VirtioGpu {
     pub fn new(
-        display_width: u32,
-        display_height: u32,
+        gpu_parameter: GpuParameter,
         rutabaga_builder: RutabagaBuilder,
     ) -> Option<Self> {
         let rutabaga = rutabaga_builder.build().ok()?;
 
+        let virtglrenderer_flags = VirglRendererFlags::new()
+            .use_egl(gpu_parameter.renderer_use_egl)
+            .use_gles(gpu_parameter.renderer_use_gles)
+            .use_glx(gpu_parameter.renderer_use_glx)
+            .use_surfaceless(gpu_parameter.renderer_use_surfaceless);
+
+        let component = match gpu_parameter.mode {
+            GpuMode::Mode2D => RutabagaComponentType::Rutabaga2D,
+            GpuMode::Mode3D => RutabagaComponentType::VirglRenderer,
+        };
+
+        let rutabaga_builder = RutabagaBuilder::new(component)
+            .set_virglrenderer_flags(virtglrenderer_flags);
+
+        rutabaga_builder.build().ok()?;
+
         Some(Self {
-            display_width,
-            display_height,
+            display_width: gpu_parameter.display_width,
+            display_height: gpu_parameter.display_height,
             scanout_resource_id: None,
             scanout_surface_id: None,
             cursor_resource_id: None,
