@@ -132,7 +132,7 @@ impl VirtioGpu {
         let rutabaga_builder = RutabagaBuilder::new(component)
             .set_virglrenderer_flags(virtglrenderer_flags);
 
-        rutabaga_builder.build().ok()?;
+        let rutabaga = rutabaga_builder.build().ok()?;
 
         Some(Self {
             display_width: gpu_parameter.display_width,
