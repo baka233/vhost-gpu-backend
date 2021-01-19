@@ -117,10 +117,7 @@ fn transfer_host_3d_to_transfer_3d(
 impl VirtioGpu {
     pub fn new(
         gpu_parameter: GpuParameter,
-        rutabaga_builder: RutabagaBuilder,
     ) -> Option<Self> {
-        let rutabaga = rutabaga_builder.build().ok()?;
-
         let virtglrenderer_flags = VirglRendererFlags::new()
             .use_egl(gpu_parameter.renderer_use_egl)
             .use_gles(gpu_parameter.renderer_use_gles)
