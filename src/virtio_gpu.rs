@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use vm_memory::{GuestMemoryMmap, GuestAddress, GuestMemory, VolatileSlice};
 use std::os::raw::c_void;
 use crate::protocol::*;
-use crate::protocol::VirtioGpuResponse::{OkNoData, OkCapsetInfo, OkCapset, ErrInvalidResourceId, OkDisplayInfo};
+use crate::protocol::VirtioGpuResponse::{OkNoData, OkCapsetInfo, OkCapset, ErrInvalidResourceId, OkDisplayInfo, OkResourceUuid};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GpuMode {
@@ -327,6 +327,19 @@ impl VirtioGpu {
         let transfer = transfer_host_3d_to_transfer_3d(cmd);
         self.rutabaga.transfer_write(cmd.hdr.ctx_id.to_native(), resource_id, transfer)?;
         Ok(OkNoData)
+    }
+
+    pub fn cmd_resource_assign_uuid(&self, cmd: virtio_gpu_resource_assign_uuid) -> VirtioGpuResponseResult {
+        let resource_id = cmd.resource_id.to_native();
+        if !self.resources.contains_key(&resource_id) {
+            return Err(ErrInvalidResourceId);
+        }
+
+        let mut uuid: [u8; 16] = [0; 16];
+        for (idx, byte) in resource_id.to_be_bytes().iter().enumerate() {
+            uuid[12 + idx] = *byte;
+        }
+        Ok(OkResourceUuid { uuid })
     }
 
     #[allow(unused_variablesb)]
