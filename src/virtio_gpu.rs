@@ -26,6 +26,9 @@ pub struct GpuParameter {
 const DEFAULT_DSIPLAY_WIDTH: u32  = 900;
 const DEFAULT_DISPLAY_HEIGHT: u32 = 600;
 
+/// Warn: it's unsafe to used in thread, only be used with Mutex
+unsafe impl Send for VirtioGpu {}
+
 impl Default for GpuParameter {
     fn default() -> Self {
         Self {
