@@ -530,6 +530,32 @@ pub type VirtioGpuCommandResult = std::result::Result<VirtioGpuCommand, VirtioGp
 
 
 impl VirtioGpuCommand {
+    pub fn size(&self) -> usize {
+        match self {
+            VirtioGpuCommand::CmdGetDisplayInfo(_)        => size_of::<virtio_gpu_display_one>(),
+            VirtioGpuCommand::CmdResourceCreate2D(_)      => size_of::<virtio_gpu_resource_create_2d>(),
+            VirtioGpuCommand::CmdResourceUnref(_)         => size_of::<virtio_gpu_resource_unref>(),
+            VirtioGpuCommand::CmdSetScanout(_)            => size_of::<virtio_gpu_set_scanout>(),
+            VirtioGpuCommand::CmdResourceFlush(_)         => size_of::<virtio_gpu_resource_flush>(),
+            VirtioGpuCommand::CmdTransferToHost2D(_)      => size_of::<virtio_gpu_transfer_to_host_2d>(),
+            VirtioGpuCommand::CmdResourceAttachBacking(_) => size_of::<virtio_gpu_resource_attach_backing>(),
+            VirtioGpuCommand::CmdResourceDetachBacking(_) => size_of::<virtio_gpu_resource_detach_backing>(),
+            VirtioGpuCommand::CmdGetCapsetInfo(_)         => size_of::<virtio_gpu_get_capset_info>(),
+            VirtioGpuCommand::CmdGetCapset(_)             => size_of::<virtio_gpu_get_capset>(),
+            VirtioGpuCommand::CmdGetEdid(_)               => size_of::<virtio_gpu_cmd_get_edid>(),
+            VirtioGpuCommand::CmdCtxCreate(_)             => size_of::<virtio_gpu_ctx_create>(),
+            VirtioGpuCommand::CmdCtxDestroy(_)            => size_of::<virtio_gpu_ctx_destroy>(),
+            VirtioGpuCommand::CmdCtxAttachResource(_)     => size_of::<virtio_gpu_ctx_resource>(),
+            VirtioGpuCommand::CmdCtxDetachResource(_)     => size_of::<virtio_gpu_ctx_resource>(),
+            VirtioGpuCommand::CmdResourceCreate3D(_)      => size_of::<virtio_gpu_resource_create_3d>(),
+            VirtioGpuCommand::CmdTransferToHost3D(_)      => size_of::<virtio_gpu_transfer_host_3d>(),
+            VirtioGpuCommand::CmdTransferFromHost3D(_)    => size_of::<virtio_gpu_transfer_host_3d>(),
+            VirtioGpuCommand::CmdSubmit3D(_)              => size_of::<virtio_gpu_cmd_submit>(),
+            VirtioGpuCommand::CmdUpdateCursor(_)          => size_of::<virtio_gpu_update_cursor>(),
+            VirtioGpuCommand::CmdMoveCursor(_)            => size_of::<virtio_gpu_update_cursor>(),
+        }
+    }
+
     pub fn decode(
         cmd: &GuestMemoryMmap,
         addr: GuestAddress
