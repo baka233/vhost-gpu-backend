@@ -18,8 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use base::{
-    warn, Error as SysError, ExternalMapping, ExternalMappingError, ExternalMappingResult,
-    FromRawDescriptor,
+    ExternalMapping, ExternalMappingError, ExternalMappingResult,
 };
 
 use crate::generated::virgl_renderer_bindings::*;
@@ -102,7 +101,7 @@ extern "C" fn debug_callback(fmt: *const ::std::os::raw::c_char, ap: *mut __va_l
         vsnprintf(raw, len.into(), fmt, &mut varargs);
         c_str = CString::from_raw(raw);
     }
-    base::debug!("{}", c_str.to_string_lossy());
+    // base::debug!("{}", c_str.to_string_lossy());
 }
 
 const VIRGL_RENDERER_CALLBACKS: &virgl_renderer_callbacks = &virgl_renderer_callbacks {
@@ -173,7 +172,7 @@ impl VirglRenderer {
         if cfg!(debug_assertions) {
             let ret = unsafe { libc::dup2(libc::STDOUT_FILENO, libc::STDERR_FILENO) };
             if ret == -1 {
-                warn!("unable to dup2 stdout to stderr: {}", SysError::last());
+                // warn!("unable to dup2 stdout to stderr: {}", SysError::last());
             }
         }
 
