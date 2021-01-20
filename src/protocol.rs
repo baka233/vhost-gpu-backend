@@ -483,6 +483,7 @@ pub struct virtio_gpu_resp_resource_uuid {
 
 unsafe impl ByteValued for virtio_gpu_resp_resource_uuid{}
 
+#[derive(Debug)]
 pub enum VirtioGpuCommandDecodeError {
     InvalidCommand(u32),
     ParserError(GuestMemoryError),
@@ -495,6 +496,7 @@ impl From<GuestMemoryError> for VirtioGpuCommandDecodeError {
 }
 
 /// VirtioGpuCommand enum
+#[derive(Debug, Clone, Copy)]
 pub enum VirtioGpuCommand {
     // 2D command
     CmdGetDisplayInfo(virtio_gpu_ctrl_hdr),
@@ -613,6 +615,7 @@ impl From<TryFromIntError> for VirtioGpuResponse {
 }
 
 // Response for the virtio
+#[derive(Debug)]
 pub enum VirtioGpuResponse {
     OkNoData,
     OkDisplayInfo(Vec<(u32, u32)>),
