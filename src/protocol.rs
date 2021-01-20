@@ -531,7 +531,7 @@ pub type VirtioGpuCommandResult = std::result::Result<VirtioGpuCommand, VirtioGp
 
 impl VirtioGpuCommand {
     pub fn decode(
-        cmd: &mut GuestMemoryMmap,
+        cmd: &GuestMemoryMmap,
         addr: GuestAddress
     ) -> VirtioGpuCommandResult  {
         use VirtioGpuCommand::*;
