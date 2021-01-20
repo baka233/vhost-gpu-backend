@@ -6,12 +6,10 @@ use std::fmt::Formatter;
 use std::str::from_utf8;
 use std::cmp::min;
 
-use ::vm_memory::{ Le32, ByteValued, Bytes, GuestMemoryError, GuestMemoryMmap };
-use vm_memory::{GuestAddress, Address, Le64};
+use ::vm_memory::{ Le32, Le64, GuestAddress, ByteValued, Bytes, GuestMemoryError, GuestMemoryMmap };
 use std::mem::{size_of_val, size_of};
 use vm_memory::guest_memory::Error;
 use crate::protocol::VirtioGpuCommandDecodeError::ParserError;
-use std::convert::TryInto;
 use std::num::TryFromIntError;
 use rutabaga_gfx::RutabagaError;
 
@@ -625,9 +623,7 @@ impl VirtioGpuResponse {
         flags:    u32,
         fence_id: u32,
         ctx_id:   u32,
-        writer:   &mut GuestMemoryMmap,
-        addr:     GuestAddress,
-    ) -> Result<u32, VirtioGpuResponse> {
+    ) -> Result<(Vec<u8>, usize), VirtioGpuResponse> {
         let hdr = virtio_gpu_ctrl_hdr {
             type_:    Le32::from(self.get_resp_command_const()),
             flags:    Le32::from(flags),
@@ -636,7 +632,7 @@ impl VirtioGpuResponse {
             padding:  Default::default(),
         };
 
-        let len = match *self {
+        let result: (Vec<u8>, usize) = match *self {
             VirtioGpuResponse::OkDisplayInfo(ref inner) => {
                 if inner.len() > VIRTIO_GPU_MAX_SCANOUTS {
                     return Err(VirtioGpuResponse::TooManyScanout(inner.len()));
@@ -652,47 +648,39 @@ impl VirtioGpuResponse {
                     pmode.enabled = Le32::from(1)
                 }
 
-                writer.write_obj(resp, addr)?;
-                size_of_val(&resp)
+                (resp.as_slice().iter().cloned().collect(), size_of_val(&resp))
             }
             VirtioGpuResponse::OkCapsetInfo{
                 capset_id,
                 version,
                 size
             } => {
-                writer.write_obj(virtio_gpu_resp_capset_info {
+                let resp = virtio_gpu_resp_capset_info {
                     hdr,
                     capset_id:          Le32::from(capset_id),
                     capset_max_version: Le32::from(version),
                     capset_max_size:    Le32::from(size),
                     padding: Default::default()
-                }, addr)?;
-                size_of::<virtio_gpu_resp_capset_info>()
+                };
+                (resp.as_slice().iter().cloned().collect(), size_of::<virtio_gpu_resp_capset_info>())
             }
             VirtioGpuResponse::OkCapset(ref inner) => {
-                writer.write_obj(hdr, addr)?;
-                let len = size_of::<virtio_gpu_ctrl_hdr>();
-                let dest_addr = addr.checked_add(len.try_into()?)
-                    .ok_or(GuestMemoryError::InvalidGuestAddress(addr.unchecked_add(len.try_into()?)))?;
-                writer.write(inner.as_slice(), dest_addr)?;
-                // [u8] length equals byte len
-                len + inner.len()
+                let resp = [hdr.as_slice(), inner.as_slice()].concat();
+                (resp.iter().cloned().collect(), size_of::<virtio_gpu_ctrl_hdr>() + inner.len())
             }
             VirtioGpuResponse::OkResourceUuid{ uuid } => {
                 let uuid_resp = virtio_gpu_resp_resource_uuid {
                     hdr,
                     uuid,
                 };
-                writer.write_obj(uuid_resp, addr)?;
-                size_of_val(&uuid_resp)
+                (uuid_resp.as_slice().iter().cloned().collect(), size_of_val(&uuid_resp))
             }
             _ => {
-                writer.write_obj(hdr, addr)?;
-                size_of::<virtio_gpu_ctrl_hdr>()
+                (hdr.as_slice().iter().cloned().collect(), size_of::<virtio_gpu_ctrl_hdr>())
             }
         };
 
-        Ok(len as u32)
+        Ok(result)
     }
 
     pub fn get_resp_command_const(&self) -> u32 {
@@ -711,5 +699,65 @@ impl VirtioGpuResponse {
             Self::ErrInvalidParameter  => VIRTIO_GPU_RESP_ERR_INVALID_PARAMETER,
             _                          => VIRTIO_GPU_RESP_ERR_UNSPEC,
         }
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use crate::VirtioGpuResponse;
+    use crate::protocol::VIRTIO_GPU_MAX_SCANOUTS;
+
+    #[test]
+    fn test_encode_resp() {
+        let mut hdr_bytes:Vec<u8> = vec![
+            0x00, 0x11, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+
+        let cases : Vec<(VirtioGpuResponse, u8, u8, Vec<u8>)>= vec![
+            (VirtioGpuResponse::OkNoData, 0x00, 0x11, vec![]),
+            (VirtioGpuResponse::OkDisplayInfo(vec![(1920, 1080)]), 0x01, 0x11,
+                [vec![
+                    0x00, 0x00, 0x00, 0x00, // x
+                    0x00, 0x00, 0x00, 0x00, // y
+                    0x80, 0x07, 0x00, 0x00, // width
+                    0x38, 0x04, 0x00, 0x00, // height
+                    0x01, 0x00, 0x00, 0x00, // enabled
+                    0x00, 0x00, 0x00, 0x00, // flags
+                ], vec![0; 24 * (VIRTIO_GPU_MAX_SCANOUTS - 1)]].concat()),
+            (VirtioGpuResponse::OkCapsetInfo {
+                    capset_id: 1,
+                    version: 2,
+                    size: 3
+                }, 0x02, 0x11, vec![
+                    0x01, 0x00, 0x00, 0x00,
+                    0x02, 0x00, 0x00, 0x00,
+                    0x03, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
+                ]),
+            (VirtioGpuResponse::OkCapset(vec![0x00, 0x01, 0x02]), 0x03, 0x11, vec![
+                    0x00, 0x01, 0x02
+                ]),
+            (VirtioGpuResponse::OkResourceUuid { uuid: [0x02; 16] }, 0x05, 0x11, vec![0x02;16]),
+            (VirtioGpuResponse::ErrUnspec, 0x00, 0x12, vec![]),
+            (VirtioGpuResponse::ErrOutOfMemory, 0x01, 0x12, vec![]),
+            (VirtioGpuResponse::ErrInvalidScanoutId, 0x02, 0x12, vec![]),
+            (VirtioGpuResponse::ErrInvalidResourceId, 0x03, 0x12, vec![]),
+            (VirtioGpuResponse::ErrInvalidContextId, 0x04, 0x12, vec![]),
+            (VirtioGpuResponse::ErrInvalidParameter, 0x05, 0x12, vec![]),
+        ];
+
+        for case in cases {
+            let resp = case.0;
+            hdr_bytes[0] = case.1;
+            hdr_bytes[1] = case.2;
+            let data: Vec<u8> = hdr_bytes.iter().chain(case.3.iter()).cloned().collect();
+            let len = data.len();
+            assert_eq!(resp.encode(0, 0, 0).unwrap_or((vec![], 0)), (data, len))
+        }
+
     }
 }
