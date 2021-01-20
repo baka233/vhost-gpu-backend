@@ -10,6 +10,9 @@ use std::rc::Rc;
 
 use crate::generated::virgl_renderer_bindings::__va_list_tag;
 use crate::rutabaga_utils::{RutabagaError, RutabagaResult};
+use std::sync::{Arc, Mutex};
+use std::borrow::BorrowMut;
+use std::ops::DerefMut;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -61,7 +64,7 @@ impl FenceState {
 }
 
 pub struct VirglCookie {
-    pub fence_state: Rc<RefCell<FenceState>>,
+    pub fence_state: Arc<Mutex<FenceState>>,
 }
 
 pub extern "C" fn write_fence(cookie: *mut c_void, fence: u32) {
@@ -69,6 +72,7 @@ pub extern "C" fn write_fence(cookie: *mut c_void, fence: u32) {
     let cookie = unsafe { &*(cookie as *mut VirglCookie) };
 
     // Track the most recent fence.
-    let mut fence_state = cookie.fence_state.borrow_mut();
+    let mut guard = cookie.fence_state.lock().unwrap();
+    let mut fence_state = guard.deref_mut();
     fence_state.write(fence);
 }

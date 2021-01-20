@@ -177,7 +177,7 @@ pub struct Rutabaga2D {
 }
 
 impl Rutabaga2D {
-    pub fn init() -> RutabagaResult<Box<dyn RutabagaComponent>> {
+    pub fn init() -> RutabagaResult<Box<dyn RutabagaComponent + Send>> {
         Ok(Box::new(Rutabaga2D {
             latest_created_fence_id: 0,
         }))

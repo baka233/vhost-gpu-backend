@@ -426,7 +426,7 @@ impl RutabagaComponent for Gfxstream {
         &self,
         ctx_id: u32,
         _context_init: u32,
-    ) -> RutabagaResult<Box<dyn RutabagaContext>> {
+    ) -> RutabagaResult<Box<dyn RutabagaContext + Send>> {
         const CONTEXT_NAME: &[u8] = b"gpu_renderer";
         // Safe because virglrenderer is initialized by now and the context name is statically
         // allocated. The return value is checked before returning a new context.

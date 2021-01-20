@@ -7,7 +7,6 @@
 
 #![cfg(feature = "virgl_renderer")]
 
-use std::cell::RefCell;
 use std::ffi::CString;
 use std::fs::File;
 use std::mem::{size_of, transmute};
@@ -15,7 +14,7 @@ use std::os::raw::{c_char, c_void};
 use std::ptr::null_mut;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use base::{
     ExternalMapping, ExternalMappingError, ExternalMappingResult,
@@ -34,7 +33,7 @@ type Query = virgl_renderer_export_query;
 
 /// The virtio-gpu backend state tracker which supports accelerated rendering.
 pub struct VirglRenderer {
-    fence_state: Rc<RefCell<FenceState>>,
+    fence_state: Arc<Mutex<FenceState>>,
 }
 
 struct VirglRendererContext {
@@ -168,7 +167,7 @@ fn unmap_func(resource_id: u32) {
 impl VirglRenderer {
     pub fn init(
         virglrenderer_flags: VirglRendererFlags,
-    ) -> RutabagaResult<Box<dyn RutabagaComponent>> {
+    ) -> RutabagaResult<Box<dyn RutabagaComponent + Send>> {
         if cfg!(debug_assertions) {
             let ret = unsafe { libc::dup2(libc::STDOUT_FILENO, libc::STDERR_FILENO) };
             if ret == -1 {
@@ -189,10 +188,10 @@ impl VirglRenderer {
         // to the Renderer instance. Doing so greatly simplifies the ownership for users of this
         // library.
 
-        let fence_state = Rc::new(RefCell::new(FenceState { latest_fence: 0 }));
+        let fence_state = Arc::new(Mutex::new(FenceState { latest_fence: 0 }));
 
         let cookie: *mut VirglCookie = Box::into_raw(Box::new(VirglCookie {
-            fence_state: Rc::clone(&fence_state),
+            fence_state: Arc::clone(&fence_state),
         }));
 
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -250,7 +249,7 @@ impl RutabagaComponent for VirglRenderer {
 
     fn poll(&self) -> u32 {
         unsafe { virgl_renderer_poll() };
-        self.fence_state.borrow().latest_fence
+        self.fence_state.lock().as_ref().unwrap().latest_fence
     }
 
     fn create_3d(
@@ -533,7 +532,7 @@ impl RutabagaComponent for VirglRenderer {
         &self,
         ctx_id: u32,
         _context_init: u32,
-    ) -> RutabagaResult<Box<dyn RutabagaContext>> {
+    ) -> RutabagaResult<Box<dyn RutabagaContext + Send>> {
         const CONTEXT_NAME: &[u8] = b"gpu_renderer";
         // Safe because virglrenderer is initialized by now and the context name is statically
         // allocated. The return value is checked before returning a new context.
