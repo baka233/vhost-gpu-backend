@@ -64,6 +64,8 @@ pub const VIRTIO_GPU_RESP_ERR_INVALID_CONTEXT_ID: u32   = 0x1204;
 pub const VIRTIO_GPU_RESP_ERR_INVALID_PARAMETER: u32    = 0x1205;
 
 pub const VIRTIO_GPU_FLAG_FENCE: u32 = 1 << 0;
+/* Fence context index info flag not upstreamed. */
+pub const VIRTIO_GPU_FLAG_INFO_FENCE_CTX_IDX: u32 = 1 << 1;
 
 
 // Device type
