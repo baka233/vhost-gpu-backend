@@ -258,12 +258,9 @@ impl VirtioGpu {
     pub fn cmd_resource_attach_backing(
         &mut self,
         cmd: virtio_gpu_resource_attach_backing,
-        data: Vec<(GuestAddress, usize)>,
-        mem:  &GuestMemoryMmap
+        data: Vec<RutabagaIovec>
     ) -> VirtioGpuResponseResult {
-        let iovecs = sglist_to_rutabaga_iovecs(data.as_slice(), mem)?;
-
-        self.rutabaga.attach_backing(cmd.resource_id.to_native(), iovecs)?;
+        self.rutabaga.attach_backing(cmd.resource_id.to_native(), data)?;
 
         Ok(OkNoData)
     }

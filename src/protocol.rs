@@ -190,7 +190,7 @@ unsafe impl ByteValued for virtio_gpu_transfer_to_host_2d{}
 #[derive(Debug, Copy, Clone, Default)]
 #[repr(C)]
 pub struct virtio_gpu_mem_entry {
-    pub addr:       Le32,
+    pub addr:       Le64,
     pub length:     Le32,
     pub padding:    Le32,
 }
