@@ -9,4 +9,4 @@ pub use protocol::VirtioGpuCommand;
 pub use protocol::VirtioGpuCommandDecodeError;
 pub use protocol::VirtioGpuCommandResult;
 
-pub use rutabaga_gfx::RutabagaIovec;
+pub use rutabaga_gfx::{RutabagaIovec, RutabagaFenceData};
