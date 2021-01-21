@@ -650,13 +650,13 @@ impl VirtioGpuResponse {
     pub fn encode(
         &self,
         flags:    u32,
-        fence_id: u32,
+        fence_id: u64,
         ctx_id:   u32,
     ) -> Result<Vec<u8>, VirtioGpuResponse> {
         let hdr = virtio_gpu_ctrl_hdr {
             type_:    Le32::from(self.get_resp_command_const()),
             flags:    Le32::from(flags),
-            fence_id: Le32::from(fence_id),
+            fence_id: Le64::from(fence_id),
             ctx_id:   Le32::from(ctx_id),
             padding:  Default::default(),
         };
@@ -740,6 +740,7 @@ pub(crate) mod tests {
     fn test_encode_resp() {
         let mut hdr_bytes:Vec<u8> = vec![
             0x00, 0x11, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
