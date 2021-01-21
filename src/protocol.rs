@@ -652,7 +652,7 @@ impl VirtioGpuResponse {
         flags:    u32,
         fence_id: u32,
         ctx_id:   u32,
-    ) -> Result<(Vec<u8>, usize), VirtioGpuResponse> {
+    ) -> Result<Vec<u8>, VirtioGpuResponse> {
         let hdr = virtio_gpu_ctrl_hdr {
             type_:    Le32::from(self.get_resp_command_const()),
             flags:    Le32::from(flags),
@@ -661,7 +661,7 @@ impl VirtioGpuResponse {
             padding:  Default::default(),
         };
 
-        let result: (Vec<u8>, usize) = match *self {
+        let result: Vec<u8> = match *self {
             VirtioGpuResponse::OkDisplayInfo(ref inner) => {
                 if inner.len() > VIRTIO_GPU_MAX_SCANOUTS {
                     return Err(VirtioGpuResponse::TooManyScanout(inner.len()));
@@ -677,7 +677,7 @@ impl VirtioGpuResponse {
                     pmode.enabled = Le32::from(1)
                 }
 
-                (resp.as_slice().iter().cloned().collect(), size_of_val(&resp))
+                resp.as_slice().iter().cloned().collect()
             }
             VirtioGpuResponse::OkCapsetInfo{
                 capset_id,
@@ -691,21 +691,21 @@ impl VirtioGpuResponse {
                     capset_max_size:    Le32::from(size),
                     padding: Default::default()
                 };
-                (resp.as_slice().iter().cloned().collect(), size_of::<virtio_gpu_resp_capset_info>())
+                resp.as_slice().iter().cloned().collect()
             }
             VirtioGpuResponse::OkCapset(ref inner) => {
                 let resp = [hdr.as_slice(), inner.as_slice()].concat();
-                (resp.iter().cloned().collect(), size_of::<virtio_gpu_ctrl_hdr>() + inner.len())
+                resp.iter().cloned().collect()
             }
             VirtioGpuResponse::OkResourceUuid{ uuid } => {
                 let uuid_resp = virtio_gpu_resp_resource_uuid {
                     hdr,
                     uuid,
                 };
-                (uuid_resp.as_slice().iter().cloned().collect(), size_of_val(&uuid_resp))
+                uuid_resp.as_slice().iter().cloned().collect()
             }
             _ => {
-                (hdr.as_slice().iter().cloned().collect(), size_of::<virtio_gpu_ctrl_hdr>())
+                hdr.as_slice().iter().cloned().collect()
             }
         };
 
@@ -785,7 +785,7 @@ pub(crate) mod tests {
             hdr_bytes[1] = case.2;
             let data: Vec<u8> = hdr_bytes.iter().chain(case.3.iter()).cloned().collect();
             let len = data.len();
-            assert_eq!(resp.encode(0, 0, 0).unwrap_or((vec![], 0)), (data, len))
+            assert_eq!(resp.encode(0, 0, 0).unwrap_or(vec![]), data)
         }
 
     }
