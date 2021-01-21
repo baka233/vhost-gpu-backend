@@ -81,7 +81,7 @@ pub const VIRTIO_GPU_F_RESOURCE_UUID: u32 = 2;
 pub struct virtio_gpu_ctrl_hdr {
     pub type_:    Le32,
     pub flags:    Le32,
-    pub fence_id: Le32,
+    pub fence_id: Le64,
     pub ctx_id:   Le32,
     pub padding:  Le32,
 }
