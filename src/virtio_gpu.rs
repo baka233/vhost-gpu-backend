@@ -252,6 +252,7 @@ impl VirtioGpu {
             // TODO: if we implement the display protocol, try to use it
             self.scanout_surface_id = None;
             self.scanout_resource_id = None;
+            return Ok(OkNoData);
         }
 
         #[allow(unused_variables)]
