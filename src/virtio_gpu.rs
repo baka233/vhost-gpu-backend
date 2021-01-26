@@ -149,7 +149,7 @@ impl VirtioGpu {
         })
     }
 
-    fn resource_create_3d(&mut self, resource_id: u32, resource_create_3d :ResourceCreate3D) -> VirtioGpuResponseResult {
+    fn resource_create_3d(&mut self, resource_id: u32, resource_create_3d: ResourceCreate3D) -> VirtioGpuResponseResult {
         self.rutabaga
             .resource_create_3d(resource_id, resource_create_3d)?;
 
@@ -163,34 +163,34 @@ impl VirtioGpu {
         Ok(OkDisplayInfo(Vec::from([(self.display_width, self.display_height)])))
     }
 
-    pub fn cmd_resource_create_2d(&mut self, cmd :virtio_gpu_resource_create_2d) -> VirtioGpuResponseResult {
+    pub fn cmd_resource_create_2d(&mut self, cmd: virtio_gpu_resource_create_2d) -> VirtioGpuResponseResult {
         let resource_create_3d = ResourceCreate3D {
-            target:     RUTABAGA_PIPE_TEXTURE_2D,
-            format:     cmd.format.to_native(),
-            bind:       RUTABAGA_PIPE_BIND_RENDER_TARGET,
-            width:      cmd.width.to_native(),
-            height:     cmd.height.to_native(),
-            depth:      1,
+            target: RUTABAGA_PIPE_TEXTURE_2D,
+            format: cmd.format.to_native(),
+            bind: RUTABAGA_PIPE_BIND_RENDER_TARGET,
+            width: cmd.width.to_native(),
+            height: cmd.height.to_native(),
+            depth: 1,
             array_size: 1,
             last_level: 0,
             nr_samples: 0,
-            flags:      0,
+            flags: 0,
         };
         self.resource_create_3d(cmd.resource_id.to_native(), resource_create_3d)
     }
 
-    pub fn cmd_resource_create_3d(&mut self, cmd :virtio_gpu_resource_create_3d) -> VirtioGpuResponseResult {
+    pub fn cmd_resource_create_3d(&mut self, cmd: virtio_gpu_resource_create_3d) -> VirtioGpuResponseResult {
         let resource_create_3d = ResourceCreate3D {
-            target:        cmd.target.to_native(),
-            format:        cmd.format.to_native(),
-            bind:          cmd.width.to_native(),
-            width:         cmd.width.to_native(),
-            height:        cmd.height.to_native(),
-            depth:         cmd.depth.to_native(),
-            array_size:    cmd.array_size.to_native(),
-            last_level:    cmd.last_level.to_native(),
-            nr_samples:    cmd.nr_samples.to_native(),
-            flags:         cmd.flags.to_native(),
+            target: cmd.target.to_native(),
+            format: cmd.format.to_native(),
+            bind: cmd.width.to_native(),
+            width: cmd.width.to_native(),
+            height: cmd.height.to_native(),
+            depth: cmd.depth.to_native(),
+            array_size: cmd.array_size.to_native(),
+            last_level: cmd.last_level.to_native(),
+            nr_samples: cmd.nr_samples.to_native(),
+            flags: cmd.flags.to_native(),
         };
         self.resource_create_3d(cmd.resource_id.to_native(), resource_create_3d)
     }
@@ -242,7 +242,7 @@ impl VirtioGpu {
         }
 
         #[allow(unused_variables)]
-        let resource = self
+            let resource = self
             .resources
             .get_mut(&cmd.resource_id.to_native())
             .ok_or(ErrInvalidResourceId)?;
@@ -307,13 +307,12 @@ impl VirtioGpu {
             cmd.r.x.to_native(),
             cmd.r.y.to_native(),
             cmd.r.width.to_native(),
-            cmd.r.height .to_native()
+            cmd.r.height.to_native()
         );
 
         self.rutabaga.transfer_write(cmd.hdr.ctx_id.to_native(), resource_id, transfer)?;
         Ok(OkNoData)
     }
-
 
 
     pub fn cmd_transfer_to_host_3d(
@@ -382,6 +381,22 @@ impl VirtioGpu {
     pub fn create_fence(&mut self, request_fence_data: RutabagaFenceData) -> VirtioGpuResponseResult {
         self.rutabaga.create_fence(request_fence_data)?;
         Ok(OkNoData)
+    }
+}
+
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use crate::virtio_gpu::GpuParameter;
+    use crate::VirtioGpu;
+
+    #[test]
+    fn test_new_virtio_gpu() {
+        let gpu_parameter: GpuParameter = Default::default();
+        let virtio_gpu = VirtioGpu::new(gpu_parameter).map_err(|e| {
+                panic!("Gpu: create new virtio gpu failed, err: {:?}", e);
+                e
+            }).unwrap();
     }
 }
 
