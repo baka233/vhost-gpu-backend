@@ -193,7 +193,7 @@ impl VirtioGpu {
         let resource_create_3d = ResourceCreate3D {
             target: cmd.target.to_native(),
             format: cmd.format.to_native(),
-            bind: cmd.width.to_native(),
+            bind: cmd.bind.to_native(),
             width: cmd.width.to_native(),
             height: cmd.height.to_native(),
             depth: cmd.depth.to_native(),
