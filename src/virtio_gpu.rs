@@ -5,6 +5,7 @@ use vm_memory::{GuestMemoryMmap, GuestAddress, GuestMemory, VolatileSlice};
 use std::os::raw::c_void;
 use crate::protocol::*;
 use crate::protocol::VirtioGpuResponse::{OkNoData, OkCapsetInfo, OkCapset, ErrInvalidResourceId, OkDisplayInfo, OkResourceUuid};
+use std::fs::read_to_string;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GpuMode {
@@ -153,6 +154,15 @@ impl VirtioGpu {
         self.rutabaga
             .resource_create_3d(resource_id, resource_create_3d)?;
 
+        let resource = VirtioGpuResource::new(
+            resource_id,
+            resource_create_3d.width,
+            resource_create_3d.height,
+            0,
+        );
+
+        self.resources.insert(resource_id, resource);
+
         match self.rutabaga.query(resource_id) {
             Ok(_) => Ok(VirtioGpuResponse::ErrInvalidResourceId),
             Err(_) => Ok(OkNoData)
@@ -197,6 +207,9 @@ impl VirtioGpu {
 
     pub fn cmd_resource_unref(&mut self, cmd: virtio_gpu_resource_unref) -> VirtioGpuResponseResult {
         self.rutabaga.unref_resource(cmd.resource_id.to_native())?;
+        self.resources
+            .remove(&cmd.resource_id.to_native())
+            .ok_or(ErrInvalidResourceId)?;
         Ok(OkNoData)
     }
 
@@ -242,7 +255,7 @@ impl VirtioGpu {
         }
 
         #[allow(unused_variables)]
-            let resource = self
+        let resource = self
             .resources
             .get_mut(&cmd.resource_id.to_native())
             .ok_or(ErrInvalidResourceId)?;
