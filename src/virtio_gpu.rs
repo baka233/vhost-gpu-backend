@@ -1,5 +1,5 @@
 use std::num::NonZeroU32;
-use rutabaga_gfx::{Rutabaga, ResourceCreate3D, RUTABAGA_PIPE_TEXTURE_2D, RUTABAGA_PIPE_BIND_RENDER_TARGET, RutabagaIovec, Transfer3D, RutabagaBuilder, RutabagaFenceData, VirglRendererFlags, RutabagaComponentType};
+use rutabaga_gfx::{Rutabaga, ResourceCreate3D, RUTABAGA_PIPE_TEXTURE_2D, RUTABAGA_PIPE_BIND_RENDER_TARGET, RutabagaIovec, Transfer3D, RutabagaBuilder, RutabagaFenceData, VirglRendererFlags, RutabagaComponentType, RutabagaError};
 use std::collections::BTreeMap;
 use vm_memory::{GuestMemoryMmap, GuestAddress, GuestMemory, VolatileSlice};
 use std::os::raw::c_void;
@@ -120,7 +120,7 @@ fn transfer_host_3d_to_transfer_3d(
 impl VirtioGpu {
     pub fn new(
         gpu_parameter: GpuParameter,
-    ) -> Option<Self> {
+    ) -> Result<Self, RutabagaError> {
         let virtglrenderer_flags = VirglRendererFlags::new()
             .use_egl(gpu_parameter.renderer_use_egl)
             .use_gles(gpu_parameter.renderer_use_gles)
@@ -135,9 +135,9 @@ impl VirtioGpu {
         let rutabaga_builder = RutabagaBuilder::new(component)
             .set_virglrenderer_flags(virtglrenderer_flags);
 
-        let rutabaga = rutabaga_builder.build().ok()?;
+        let rutabaga = rutabaga_builder.build()?;
 
-        Some(Self {
+        Ok(Self {
             display_width: gpu_parameter.display_width,
             display_height: gpu_parameter.display_height,
             scanout_resource_id: None,
