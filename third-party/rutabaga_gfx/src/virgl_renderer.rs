@@ -168,12 +168,12 @@ impl VirglRenderer {
     pub fn init(
         virglrenderer_flags: VirglRendererFlags,
     ) -> RutabagaResult<Box<dyn RutabagaComponent>> {
-        // if cfg!(debug_assertions) {
-        //     let ret = unsafe { libc::dup2(libc::STDOUT_FILENO, libc::STDERR_FILENO) };
-        //     if ret == -1 {
-        //         // warn!("unable to dup2 stdout to stderr: {}", SysError::last());
-        //     }
-        // }
+        if cfg!(debug_assertions) {
+            let ret = unsafe { libc::dup2(libc::STDOUT_FILENO, libc::STDERR_FILENO) };
+            if ret == -1 {
+                // warn!("unable to dup2 stdout to stderr: {}", SysError::last());
+            }
+        }
 
         // virglrenderer is a global state backed library that uses thread bound OpenGL contexts.
         // Initialize it only once and use the non-send/non-sync Renderer struct to keep things tied
