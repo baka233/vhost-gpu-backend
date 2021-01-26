@@ -38,7 +38,7 @@ impl Default for GpuParameter {
             renderer_use_gles: true,
             renderer_use_glx: true,
             renderer_use_surfaceless: true,
-            mode: GpuMode::Mode2D
+            mode: GpuMode::Mode3D
         }
     }
 }
