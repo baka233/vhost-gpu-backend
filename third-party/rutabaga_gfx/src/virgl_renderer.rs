@@ -167,7 +167,7 @@ fn unmap_func(resource_id: u32) {
 impl VirglRenderer {
     pub fn init(
         virglrenderer_flags: VirglRendererFlags,
-    ) -> RutabagaResult<Box<dyn RutabagaComponent + Send>> {
+    ) -> RutabagaResult<Box<dyn RutabagaComponent>> {
         if cfg!(debug_assertions) {
             let ret = unsafe { libc::dup2(libc::STDOUT_FILENO, libc::STDERR_FILENO) };
             if ret == -1 {
@@ -532,7 +532,7 @@ impl RutabagaComponent for VirglRenderer {
         &self,
         ctx_id: u32,
         _context_init: u32,
-    ) -> RutabagaResult<Box<dyn RutabagaContext + Send>> {
+    ) -> RutabagaResult<Box<dyn RutabagaContext>> {
         const CONTEXT_NAME: &[u8] = b"gpu_renderer";
         // Safe because virglrenderer is initialized by now and the context name is statically
         // allocated. The return value is checked before returning a new context.
