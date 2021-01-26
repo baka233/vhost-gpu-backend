@@ -165,7 +165,7 @@ pub trait RutabagaComponent {
         &self,
         _ctx_id: u32,
         _context_init: u32,
-    ) -> RutabagaResult<Box<dyn RutabagaContext + Send>> {
+    ) -> RutabagaResult<Box<dyn RutabagaContext>> {
         Err(RutabagaError::Unsupported)
     }
 }
@@ -230,8 +230,8 @@ fn capset_index_to_component_info(index: u32) -> RutabagaResult<(RutabagaCompone
 /// thread-safe is more difficult.
 pub struct Rutabaga {
     resources: Map<u32, RutabagaResource>,
-    components: Map<RutabagaComponentType, Box<dyn RutabagaComponent + Send>>,
-    contexts: Map<u32, Box<dyn RutabagaContext + Send>>,
+    components: Map<RutabagaComponentType, Box<dyn RutabagaComponent>>,
+    contexts: Map<u32, Box<dyn RutabagaContext>>,
     default_component: RutabagaComponentType,
 }
 
@@ -668,7 +668,7 @@ impl RutabagaBuilder {
     /// intialize all 3D components which have been built. In 2D mode, only the 2D component is
     /// initialized.
     pub fn build(self) -> RutabagaResult<Rutabaga> {
-        let mut rutabaga_components: Map<RutabagaComponentType, Box<dyn RutabagaComponent + Send>> =
+        let mut rutabaga_components: Map<RutabagaComponentType, Box<dyn RutabagaComponent>> =
             Default::default();
 
         if self.default_component == RutabagaComponentType::Rutabaga2D {
