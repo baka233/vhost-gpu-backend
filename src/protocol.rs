@@ -29,6 +29,7 @@ pub const VIRTIO_GPU_CMD_RESOURCE_DETACH_BACKING: u32    = 0x0107;
 pub const VIRTIO_GPU_CMD_GET_CAPSET_INFO: u32            = 0x0108;
 pub const VIRTIO_GPU_CMD_GET_CAPSET: u32                 = 0x0109;
 pub const VIRTIO_GPU_CMD_GET_EDID: u32                   = 0x010a;
+pub const VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID: u32       = 0x010b;
 
 // 3D command based on qemu virtio_gpu
 // https://github.com/qemu/qemu/blob/master/include/standard-headers/linux/virtio_gpu.h
@@ -512,6 +513,7 @@ pub enum VirtioGpuCommand {
     CmdGetCapsetInfo(virtio_gpu_get_capset_info),
     CmdGetCapset(virtio_gpu_get_capset),
     CmdGetEdid(virtio_gpu_cmd_get_edid),
+    CmdResourceAssignUuid(virtio_gpu_resource_assign_uuid),
 
 
     // 3D command
@@ -557,6 +559,7 @@ impl VirtioGpuCommand {
             VirtioGpuCommand::CmdSubmit3D(_)              => size_of::<virtio_gpu_cmd_submit>(),
             VirtioGpuCommand::CmdUpdateCursor(_)          => size_of::<virtio_gpu_update_cursor>(),
             VirtioGpuCommand::CmdMoveCursor(_)            => size_of::<virtio_gpu_update_cursor>(),
+            VirtioGpuCommand::CmdResourceAssignUuid(..)   => size_of::<virtio_gpu_resource_assign_uuid>(),
         }
     }
 
@@ -578,6 +581,7 @@ impl VirtioGpuCommand {
             VIRTIO_GPU_CMD_GET_CAPSET_INFO          => CmdGetCapsetInfo(cmd.read_obj(addr)?),
             VIRTIO_GPU_CMD_GET_CAPSET               => CmdGetCapset(cmd.read_obj(addr)?),
             VIRTIO_GPU_CMD_GET_EDID                 => CmdGetEdid(cmd.read_obj(addr)?),
+            VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID     => CmdResourceAssignUuid(cmd.read_obj(addr)?),
 
             VIRTIO_GPU_CMD_CTX_CREATE               => CmdCtxCreate(cmd.read_obj(addr)?),
             VIRTIO_GPU_CMD_CTX_DESTROY              => CmdCtxDestroy(cmd.read_obj(addr)?),
