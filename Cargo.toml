@@ -13,5 +13,5 @@ virgl_renderer = ["rutabaga_gfx/virgl_renderer"]
 rutabaga_gfx = { path = "third-party/rutabaga_gfx" }
 base = { path = "third-party/base", package = "base" }
 data_model = { path = "third-party/data_model"}
-vm-memory = { version = ">=0.2.2", features = ["backend-mmap"] }
+vm-memory = { git = "https://github.com/baka233/vm-memory", branch="add_raw_fd_mmap_v0.4.0", features = ["backend-mmap"] }
 libc = "*"
