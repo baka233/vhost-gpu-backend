@@ -634,6 +634,10 @@ pub enum VirtioGpuResponse {
     OkResourceUuid {
         uuid:   [u8; 16],
     },
+    OkEdid {
+        size:        u32,
+        edid:        [u8; 1024],
+    },
 
     // Err response
     ErrUnspec,
@@ -696,6 +700,18 @@ impl VirtioGpuResponse {
                     capset_max_version: Le32::from(version),
                     capset_max_size:    Le32::from(size),
                     padding: Default::default()
+                };
+                resp.as_slice().iter().cloned().collect()
+            }
+            VirtioGpuResponse::OkEdid {
+                size,
+                edid
+            } => {
+                let resp = virtio_gpu_resp_edid {
+                    hdr,
+                    size: Le32::from(size),
+                    padding: Default::default(),
+                    edid: edid,
                 };
                 resp.as_slice().iter().cloned().collect()
             }
