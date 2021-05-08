@@ -11,6 +11,7 @@ virgl_renderer = ["rutabaga_gfx/virgl_renderer"]
 
 [dependencies]
 rutabaga_gfx = { path = "third-party/rutabaga_gfx" }
+gpu_display = { path = "third-party/gpu_display", features = ["x"] }
 base = { path = "third-party/base", package = "base" }
 data_model = { path = "third-party/data_model"}
 vm-memory = { git = "https://github.com/baka233/vm-memory", branch="add_raw_fd_mmap_v0.4.0", features = ["backend-mmap"] }

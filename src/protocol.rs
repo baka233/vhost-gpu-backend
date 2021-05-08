@@ -12,6 +12,7 @@ use vm_memory::guest_memory::Error;
 use crate::protocol::VirtioGpuCommandDecodeError::ParserError;
 use std::num::TryFromIntError;
 use rutabaga_gfx::RutabagaError;
+use gpu_display::GpuDisplayError;
 
 
 // virtio-gpu protocol based on
@@ -652,6 +653,7 @@ pub enum VirtioGpuResponse {
     EncodeError(GuestMemoryError),
     RutabagaError(RutabagaError),
     UnsupportPlatform(TryFromIntError),
+    DisplayErr(GpuDisplayError),
     InvalidSglistRegion()
 }
 
@@ -711,7 +713,7 @@ impl VirtioGpuResponse {
                     hdr,
                     size: Le32::from(size),
                     padding: Default::default(),
-                    edid: edid,
+                    edid,
                 };
                 resp.as_slice().iter().cloned().collect()
             }

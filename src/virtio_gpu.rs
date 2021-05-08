@@ -4,8 +4,11 @@ use std::collections::BTreeMap;
 use vm_memory::{GuestMemoryMmap, GuestAddress, GuestMemory, VolatileSlice};
 use std::os::raw::c_void;
 use crate::protocol::*;
-use crate::protocol::VirtioGpuResponse::{OkNoData, OkCapsetInfo, OkCapset, ErrInvalidResourceId, OkDisplayInfo, OkResourceUuid, OkEdid};
+use crate::protocol::VirtioGpuResponse::{OkNoData, OkCapsetInfo, OkCapset, ErrInvalidResourceId, OkDisplayInfo, OkResourceUuid, OkEdid, ErrUnspec};
 use std::fs::read_to_string;
+use std::cell::RefCell;
+use std::rc::Rc;
+use gpu_display::GpuDisplay;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GpuMode {
@@ -70,12 +73,13 @@ impl VirtioGpuResource {
 }
 
 pub struct VirtioGpu {
+    pub display:         Rc<RefCell<GpuDisplay>>,
     display_width:       u32,
     display_height:      u32,
     scanout_resource_id: Option<NonZeroU32>,
     scanout_surface_id:  Option<u32>,
     cursor_resource_id:  Option<NonZeroU32>,
-    cursor_surface_id:   u32,
+    cursor_surface_id:   Option<u32>,
     rutabaga:            Rutabaga,
     resources:           BTreeMap<u32, VirtioGpuResource>,
 }
@@ -120,6 +124,7 @@ fn transfer_host_3d_to_transfer_3d(
 
 impl VirtioGpu {
     pub fn new(
+        display: GpuDisplay,
         gpu_parameter: GpuParameter,
     ) -> Result<Self, RutabagaError> {
         let virtglrenderer_flags = VirglRendererFlags::new()
@@ -139,15 +144,31 @@ impl VirtioGpu {
         let rutabaga = rutabaga_builder.build()?;
 
         Ok(Self {
+            display: Rc::new(RefCell::new(display)),
             display_width: gpu_parameter.display_width,
             display_height: gpu_parameter.display_height,
             scanout_resource_id: None,
             scanout_surface_id: None,
             cursor_resource_id: None,
-            cursor_surface_id: 0,
+            cursor_surface_id: None,
             rutabaga,
             resources: Default::default()
         })
+    }
+
+    pub fn display(&mut self) -> &Rc<RefCell<GpuDisplay>> { &self.display }
+
+    /// Gets the list of supported display resolutions as a slice of `(width, height)` tuples.
+    pub fn display_info(&self) -> [(u32, u32); 1] {
+        [(self.display_width, self.display_height)]
+    }
+
+    pub fn process_display(&mut self) -> bool {
+        let mut display = self.display.borrow_mut();
+        display.dispatch_events();
+        self.scanout_surface_id
+            .map(|s| display.close_requested(s))
+            .unwrap_or(false)
     }
 
     fn resource_create_3d(&mut self, resource_id: u32, resource_create_3d: ResourceCreate3D) -> VirtioGpuResponseResult {
@@ -275,11 +296,70 @@ impl VirtioGpu {
         Ok(OkCapset(capset))
     }
 
+    /// Attempts to import the given resource into the display, otherwise falls back to rutabaga
+    /// copies.
+    pub fn flush_resource_to_surface(
+        &mut self,
+        resource_id: u32,
+        surface_id: u32,
+    ) -> VirtioGpuResponseResult {
+        if let Some(import_id) = self.import_to_display(resource_id) {
+            self.display.borrow_mut().flip_to(surface_id, import_id);
+            return Ok(OkNoData);
+        }
+
+        if !self.resources.contains_key(&resource_id) {
+            return Err(ErrInvalidResourceId);
+        }
+
+        // Import failed, fall back to a copy.
+        let mut display = self.display.borrow_mut();
+        // Prevent overwriting a buffer that is currently being used by the compositor.
+        if display.next_buffer_in_use(surface_id.clone()) {
+            return Ok(OkNoData);
+        }
+
+        let fb = display
+            .framebuffer_region(surface_id, 0, 0, self.display_width.clone(), self.display_height.clone())
+            .ok_or(ErrUnspec)?;
+
+        let mut transfer = Transfer3D::new_2d(0, 0, self.display_width.clone(), self.display_height.clone());
+        transfer.stride = fb.stride();
+        self.rutabaga
+            .transfer_read(0, resource_id, transfer, Some(fb.as_volatile_slice()))?;
+        display.flip(surface_id);
+
+        Ok(OkNoData)
+    }
+
     /// flush resource screen
     #[allow(unused_variables)]
     pub fn cmd_flush_resource(&mut self, cmd: virtio_gpu_resource_flush) -> VirtioGpuResponseResult {
+        let resource_id = cmd.resource_id.to_native();
+        if resource_id == 0 {
+            return Ok(OkNoData);
+        }
+
+        if let (Some(scanout_resource_id), Some(scanout_surface_id)) =
+            (self.scanout_resource_id, self.scanout_surface_id)
+        {
+            if scanout_resource_id.get() == cmd.resource_id.to_native() {
+                self.flush_resource_to_surface(resource_id, scanout_surface_id)?;
+            }
+        }
+
+        if let (Some(cursor_resource_id), Some(cursor_surface_id)) =
+            (self.cursor_resource_id, self.cursor_surface_id)
+        {
+            if cursor_resource_id.get() == resource_id {
+                self.flush_resource_to_surface(resource_id, cursor_surface_id)?;
+            }
+        }
+
         Ok(OkNoData)
     }
+    pub fn import_to_display(&mut self, resource_id: u32) -> Option<u32> { None }
+
 
     /// set the scanout surface
     pub fn cmd_set_scanout(&mut self, cmd: virtio_gpu_set_scanout) -> VirtioGpuResponseResult {
@@ -406,15 +486,72 @@ impl VirtioGpu {
         &mut self,
         cmd: virtio_gpu_update_cursor
     ) -> VirtioGpuResponseResult {
+        let x = cmd.pos.x.to_native();
+        let y = cmd.pos.y.to_native();
+        if let Some(cursor_surface_id) = self.cursor_surface_id {
+            if let Some(scanout_surface_id) = self.scanout_surface_id {
+                let mut display = self.display.borrow_mut();
+                display.set_position(cursor_surface_id, x, y);
+                display.commit(scanout_surface_id);
+            }
+        }
         Ok(OkNoData)
     }
 
-    /// TODO: not implement, just return OkNoData
     #[allow(unused_variables)]
     pub fn cmd_update_cursor(
         &mut self,
         cmd: virtio_gpu_update_cursor
     ) -> VirtioGpuResponseResult {
+        let resource_id = cmd.resource_id.to_native();
+        let y = cmd.pos.y.to_native();
+        let x = cmd.pos.x.to_native();
+        if resource_id == 0 {
+            if let Some(surface_id) = self.cursor_surface_id.take() {
+                self.display.borrow_mut().release_surface(surface_id);
+            }
+            self.cursor_resource_id = None;
+            return Ok(OkNoData);
+        }
+
+        let (resource_width, resource_height) = self
+            .resources
+            .get_mut(&resource_id)
+            .ok_or(ErrInvalidResourceId)?
+            .dimensions();
+
+        self.cursor_resource_id = NonZeroU32::new(resource_id);
+
+        if self.cursor_surface_id.is_none() {
+            self.cursor_surface_id = Some(self.display.borrow_mut().create_surface(
+                self.scanout_surface_id,
+                resource_width,
+                resource_height,
+            ).map_err(VirtioGpuResponse::DisplayErr)?);
+        }
+
+        let cursor_surface_id = self.cursor_surface_id.unwrap();
+        self.display
+            .borrow_mut()
+            .set_position(cursor_surface_id, x, y);
+
+        // Gets the resource's pixels into the display by importing the buffer.
+        if let Some(import_id) = self.import_to_display(resource_id) {
+            self.display
+                .borrow_mut()
+                .flip_to(cursor_surface_id, import_id);
+            return Ok(OkNoData);
+        }
+
+        // Importing failed, so try copying the pixels into the surface's slower shared memory
+        // framebuffer.
+        if let Some(fb) = self.display.borrow_mut().framebuffer(cursor_surface_id) {
+            let mut transfer = Transfer3D::new_2d(0, 0, resource_width, resource_height);
+            transfer.stride = fb.stride();
+            self.rutabaga
+                .transfer_read(0, resource_id, transfer, Some(fb.as_volatile_slice()))?;
+        }
+        self.display.borrow_mut().flip(cursor_surface_id);
         Ok(OkNoData)
     }
 
@@ -440,11 +577,13 @@ impl VirtioGpu {
 pub(crate) mod tests {
     use crate::virtio_gpu::GpuParameter;
     use crate::VirtioGpu;
+    use gpu_display::GpuDisplay;
 
     #[test]
     fn test_new_virtio_gpu() {
         let gpu_parameter: GpuParameter = Default::default();
-        let virtio_gpu = VirtioGpu::new(gpu_parameter).map_err(|e| {
+        let gpu = GpuDisplay::open_x(Some("test".to_owned())).unwrap();
+        let virtio_gpu = VirtioGpu::new(gpu, gpu_parameter).map_err(|e| {
                 panic!("Gpu: create new virtio gpu failed, err: {:?}", e);
                 e
             }).unwrap();
