@@ -336,7 +336,7 @@ impl Surface {
                 continue;
             }
             if let Err(e) = event_device.send_report(events.iter().cloned()) {
-                // error!("error sending events to event device: {}", e);
+                println!("error sending events to event device: {}", e);
             }
         }
     }
