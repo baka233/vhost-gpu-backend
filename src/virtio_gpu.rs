@@ -364,11 +364,28 @@ impl VirtioGpu {
     /// set the scanout surface
     pub fn cmd_set_scanout(&mut self, cmd: virtio_gpu_set_scanout) -> VirtioGpuResponseResult {
         let resource_id = cmd.resource_id.to_native();
+        let mut display = self.display.borrow_mut();
 
         if resource_id == 0 {
             // TODO: if we implement the display protocol, try to use it
-            self.scanout_surface_id = None;
-            self.scanout_resource_id = None;
+            if let Some(surface_id) = self.scanout_surface_id.take() {
+                display.release_surface(surface_id);
+                self.scanout_resource_id = None;
+
+                return Ok(OkNoData);
+            }
+
+            let resource = self
+                .resources
+                .get_mut(&resource_id)
+                .ok_or(ErrInvalidResourceId)?;
+
+            self.scanout_resource_id = NonZeroU32::new(resource_id);
+            if self.scanout_surface_id.is_none() {
+                let surface_id =
+                    display.create_surface(None, self.display_width, self.display_height).map_err(VirtioGpuResponse::DisplayErr)?;
+                self.scanout_surface_id = Some(surface_id);
+            }
             return Ok(OkNoData);
         }
 
