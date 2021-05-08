@@ -375,10 +375,10 @@ impl VirtioGpu {
                 return Ok(OkNoData);
             }
 
-            let resource = self
-                .resources
-                .get_mut(&resource_id)
-                .ok_or(ErrInvalidResourceId)?;
+            // let resource = self
+            //     .resources
+            //     .get_mut(&resource_id)
+            //     .ok_or(ErrInvalidResourceId)?;
 
             self.scanout_resource_id = NonZeroU32::new(resource_id);
             if self.scanout_surface_id.is_none() {
