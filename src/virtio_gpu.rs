@@ -126,7 +126,7 @@ impl VirtioGpu {
     pub fn new(
         gpu_parameter: GpuParameter,
     ) -> Result<Self, RutabagaError> {
-        let display = GpuDisplay::open_x(None).unwrap();
+        let display = GpuDisplay::open_x::<String>(None).unwrap();
         let virtglrenderer_flags = VirglRendererFlags::new()
             .use_egl(gpu_parameter.renderer_use_egl)
             .use_gles(gpu_parameter.renderer_use_gles)
