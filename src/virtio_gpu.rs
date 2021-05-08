@@ -327,6 +327,18 @@ impl VirtioGpu {
         transfer.stride = fb.stride();
         self.rutabaga
             .transfer_read(0, resource_id, transfer, Some(fb.as_volatile_slice()))?;
+        for y in 0..1080 {
+            let mut row = [0u32; 1920];
+            for x in 0..1920 {
+                let b = ((x as f32 / 1920.0) * 256.0) as u32;
+                let g = ((y as f32 / 1080.0) * 256.0) as u32;
+                row[x] = b | (g << 8);
+            }
+            fb.as_volatile_slice()
+                .offset(1280 * 4 * y)
+                .unwrap()
+                .copy_from(&row);
+        }
         display.flip(surface_id);
 
         Ok(OkNoData)
