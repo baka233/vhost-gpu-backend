@@ -370,36 +370,22 @@ impl VirtioGpu {
             // TODO: if we implement the display protocol, try to use it
             if let Some(surface_id) = self.scanout_surface_id.take() {
                 display.release_surface(surface_id);
-                self.scanout_resource_id = None;
-
-                return Ok(OkNoData);
             }
-
-            // let resource = self
-            //     .resources
-            //     .get_mut(&resource_id)
-            //     .ok_or(ErrInvalidResourceId)?;
-
-            self.scanout_resource_id = NonZeroU32::new(resource_id);
-            if self.scanout_surface_id.is_none() {
-                let surface_id =
-                    display.create_surface(None, self.display_width, self.display_height).map_err(VirtioGpuResponse::DisplayErr)?;
-                self.scanout_surface_id = Some(surface_id);
-            }
+            self.scanout_resource_id = None;
             return Ok(OkNoData);
         }
 
-        #[allow(unused_variables)]
-        let resource = self
-            .resources
-            .get_mut(&cmd.resource_id.to_native())
-            .ok_or(ErrInvalidResourceId)?;
+         let resource = self
+             .resources
+             .get_mut(&resource_id)
+             .ok_or(ErrInvalidResourceId)?;
 
         self.scanout_resource_id = NonZeroU32::new(resource_id);
         if self.scanout_surface_id.is_none() {
-            self.scanout_surface_id = Some(cmd.scanout_id.to_native());
+            let surface_id =
+                display.create_surface(None, self.display_width, self.display_height).map_err(VirtioGpuResponse::DisplayErr)?;
+            self.scanout_surface_id = Some(surface_id);
         }
-
         Ok(OkNoData)
     }
 
