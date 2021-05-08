@@ -335,7 +335,7 @@ impl VirtioGpu {
                 row[x] = b | (g << 8);
             }
             fb.as_volatile_slice()
-                .offset(1280 * 4 * y)
+                .offset(1080 * 4 * y)
                 .unwrap()
                 .copy_from(&row);
         }
