@@ -24,8 +24,8 @@ pub struct GpuParameter {
     pub mode:                     GpuMode,
 }
 
-const DEFAULT_DSIPLAY_WIDTH: u32  = 900;
-const DEFAULT_DISPLAY_HEIGHT: u32 = 600;
+const DEFAULT_DSIPLAY_WIDTH: u32  = 1920;
+const DEFAULT_DISPLAY_HEIGHT: u32 = 1080;
 
 /// Warn: it's unsafe to used in thread, only be used with Mutex
 unsafe impl Send for VirtioGpu {}
