@@ -124,9 +124,9 @@ fn transfer_host_3d_to_transfer_3d(
 
 impl VirtioGpu {
     pub fn new(
-        display: GpuDisplay,
         gpu_parameter: GpuParameter,
     ) -> Result<Self, RutabagaError> {
+        let display = GpuDisplay::open_x(Some("test".to_owned())).unwrap();
         let virtglrenderer_flags = VirglRendererFlags::new()
             .use_egl(gpu_parameter.renderer_use_egl)
             .use_gles(gpu_parameter.renderer_use_gles)
@@ -582,8 +582,7 @@ pub(crate) mod tests {
     #[test]
     fn test_new_virtio_gpu() {
         let gpu_parameter: GpuParameter = Default::default();
-        let gpu = GpuDisplay::open_x(Some("test".to_owned())).unwrap();
-        let virtio_gpu = VirtioGpu::new(gpu, gpu_parameter).map_err(|e| {
+        let virtio_gpu = VirtioGpu::new(gpu_parameter).map_err(|e| {
                 panic!("Gpu: create new virtio gpu failed, err: {:?}", e);
                 e
             }).unwrap();
